@@ -9,6 +9,12 @@ example usage with express
 var express = require('express');
 var gfproxy = require("./lib/gf-proxy.js"); // or wherever you put it.
 
+// config params
+// @cronHour: the hour for the cron job, must be a number
+// @gfUser: the username for the gf account
+// @gfSecret: the secret for the gf user account
+// @gfEventId: the id of the gf event that holds the form
+// @gfFormId: the id of the gf form that you want to process
 var gfModel = new gfproxy({
     cronHour: process.env.CRON_CONFIG_HOUR,
     gfUser: process.env.GF_USER,
