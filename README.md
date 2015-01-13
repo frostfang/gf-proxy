@@ -11,7 +11,6 @@ There is an express site that's included but this is just an example and i recom
 - Its expected that you have an existing go fundraise account. 
 - Populate the env variables (GF_USER, GF_SECRET) or the commandline arguments (u,s) with the relevant details.
 - Configure the (CRON_CONFIG_HOUR) env variable or the (c) commandline argument with the hour of the day you want the processing to run.
-- 
 
 ### TODO
 - The gfModel object needs to be refactored into its own module and included via require().
