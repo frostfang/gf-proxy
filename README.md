@@ -13,6 +13,4 @@ There is an express site that's included but this is just an example and i recom
 - Configure the (CRON_CONFIG_HOUR) env variable or the (c) commandline argument with the hour of the day you want the processing to run.
 
 ### TODO
-- The gfModel object needs to be refactored into its own module and included via require().
-- Once its refactored this repo needs to just have that model instead of all the express and client stuff.
-- cater for more than one event
+- cater for more than one event, i.e. the config doesnt accept the event, you add it in the processing method etc...
