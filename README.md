@@ -42,5 +42,8 @@ router.get('/download', function(req,res){
 
 ### TODO
 - cater for more than one event, i.e. the config doesnt accept the event, you add it in the processing method etc...
-- extend downloadExport to not depend on express
 - add to npm
+
+### Mailchimp
+- I've added a mailchimp proxy here which uses the node mailchimp-api. Its here purely for convenienve.
+- you use the mailchimp proxy much the same way as the gf-proxy
