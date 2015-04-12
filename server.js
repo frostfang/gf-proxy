@@ -27,7 +27,6 @@ var gfModel = new gfproxy({
 });
 
 
-
 var processConfig = '00 00 ' + process.env.CRON_PROCESS_HOUR + ' * * *';
 var syncConfig = '00 00 ' + process.env.CRON_SYNC_HOUR + ' * * *';
 var jobRunLog = [];
@@ -39,6 +38,7 @@ new cronJob(processConfig, function(){
         
         jobRunLog.push({
             timestamp: new Date(),
+            message: 'startProcessing complete (via CRON)',
             error: err,
             data: d
         });
@@ -46,10 +46,10 @@ new cronJob(processConfig, function(){
         // after the file is processed, grab a copy of regos to temp
         var ws = fs.createWriteStream(process.env.GF_LOCAL_FILENAME);
         ws.on('error', function(wsErr) { 
-            jobRunLog.log(wsErr); 
+            jobRunLog.push(wsErr); 
         });
         ws.on('finish', function(){ 
-            jobRunLog.log({ 
+            jobRunLog.push({ 
                 timestamp: new Date(), 
                 message: process.env.GF_LOCAL_FILENAME + ' has been saved'
             });
@@ -61,7 +61,7 @@ new cronJob(processConfig, function(){
 
 new cronJob(syncConfig, function(){
     syncEmails(function(d){
-        jobRunLog.log({
+        jobRunLog.push({
             timestamp: new Date(),
             message: 'sync job complete',
             data: d
@@ -77,6 +77,14 @@ router.use(express.static(path.resolve(__dirname, 'client')));
 
 router.get('/reprocess', function(req,res){
     gfModel.startProcessing(function(err,d){
+        // send to the log
+        jobRunLog.push({
+            timestamp: new Date(),
+            message: 'startProcessing complete (via express)',
+            error: err,
+            data: d
+        });
+        
         if(err)
             return res.send(err);
             
@@ -97,11 +105,19 @@ router.get('/gf/grab', function(req, res) {
     // grab the list of regos
     var ws = fs.createWriteStream(process.env.GF_LOCAL_FILENAME);
     ws.on('error', function(err) { 
-        console.log(err); 
+        jobRunLog.push(err); 
     });
     ws.on('finish', function(){ 
+        // add to the log
+        jobRunLog.push({ 
+            timestamp: new Date(), 
+            message: process.env.GF_LOCAL_FILENAME + ' has been cached locally'
+        });
+        
+        // send to the response
         res.send({ msg: process.env.GF_LOCAL_FILENAME + ' has been cached locally' });
     });
+    
     gfModel.downloadExport(ws);
 });
 
@@ -111,6 +127,7 @@ router.get('/gf/members', function(req, res) {
     var wb = xlsx.readFile(process.env.GF_LOCAL_FILENAME);
 	res.send(xlsx.utils.sheet_to_row_object_array(wb.Sheets[sheet]));
 });
+
 
 router.get('/gf/jsonp', function(req, res) {
     var sheet = process.env.GF_XLSX_SHEET;
