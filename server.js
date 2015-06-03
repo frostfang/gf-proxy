@@ -29,6 +29,10 @@ var gfModel = new gfproxy({
 
 var processConfig = '00 00 ' + process.env.CRON_PROCESS_HOUR + ' * * *';
 var syncConfig = '00 00 ' + process.env.CRON_SYNC_HOUR + ' * * *';
+
+//var processConfig = '0 * * * * *';
+//var syncConfig =    '30 * * * * *';
+
 var jobRunLog = [];
 // the cron job to hit the GF page every day
 // 00 00 13 * * *'
@@ -54,6 +58,7 @@ new cronJob(processConfig, function(){
                 message: process.env.GF_LOCAL_FILENAME + ' has been saved'
             });
         });
+        
         gfModel.downloadExport(ws);
         
     });
@@ -63,8 +68,8 @@ new cronJob(syncConfig, function(){
     syncEmails(function(d){
         jobRunLog.push({
             timestamp: new Date(),
-            message: 'sync job complete',
-            data: d
+            message: 'syncEmails complete (via CRON)',
+            data:d
         });
     });
 }, null,true);
@@ -132,14 +137,18 @@ router.get('/gf/members', function(req, res) {
 router.get('/gf/jsonp', function(req, res) {
     var sheet = process.env.GF_XLSX_SHEET;
     var wb = xlsx.readFile(process.env.GF_LOCAL_FILENAME);
+    // changing this to include volunteers as a ride group
     var o = us.chain(xlsx.utils.sheet_to_row_object_array(wb.Sheets[sheet]))
-        .where({ "I would like to register as:": "A Rider $300|300.00" })
+        //.where({ "I would like to register as:": "A Rider $300|300.00" })
         .map(function(r){
+            
             return {
                 Title: r["Title"],
                 FirstName: r["Name (First)"],
                 LastName: r["Name (Last)"],
-                Group: r["Preferred Ride Group"]
+                Group: r["I would like to register as:"] === "A Rider $300|300.00" ? 
+                    r["Preferred Ride Group"] : 
+                    "Supporter - " + (r["Volunteer Type"] === "Masseur" ? "Massage Therapist" : r["Volunteer Type"])
             };
         })
         .sortBy(function(r){
@@ -148,6 +157,8 @@ router.get('/gf/jsonp', function(req, res) {
         .value();
     res.jsonp(o);
 });
+
+
         
 
 router.get('/mc/members', function(req, res) {
@@ -162,6 +173,12 @@ router.get('/mc/members', function(req, res) {
 router.get('/mc/sync', function(req, res) {
     syncEmails(function(d){
         res.send(d);
+        
+        jobRunLog.push({
+            timestamp: new Date(),
+            message: 'syncEmails complete (via express)',
+            data: { added: d.add_count, errored: d.error_count, updated: d.updated }
+        });
     });
 });    
 
