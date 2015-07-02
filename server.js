@@ -1,4 +1,5 @@
 require('newrelic');
+var memwatch = require("memwatch");
 var http = require('http');
 var path = require('path');
 var express = require('express');
@@ -6,9 +7,19 @@ var express = require('express');
 var cronJob = require('cron').CronJob;
 var gfproxy = require("./lib/gf-proxy.js");
 var mcproxy = require("./lib/mc-proxy.js");
-var xlsx = require("xlsx");
+//var xlsx = require("xlsx");
+var jlsx = require("j");
 var fs = require("fs");
 var us = require("underscore");
+
+// memwatch 
+memwatch.on('leak', function(info){
+    jobRunLog.push({ leak: info });
+});
+memwatch.on('stats', function(info) {
+    jobRunLog.push({ stats: info });
+});
+
 
 // mail chimp
 var mcModel = new mcproxy({
@@ -16,7 +27,6 @@ var mcModel = new mcproxy({
     mcPageSize: 100
 });
 
-//var mc = new mcapi.Mailchimp(cfg.mcApiKey);
 
 // gofundraise
 var gfModel = new gfproxy({
@@ -26,7 +36,7 @@ var gfModel = new gfproxy({
     gfFormId: process.env.GF_FORM_ID
 });
 
-
+// cron configs
 var processConfig = '00 00 ' + process.env.CRON_PROCESS_HOUR + ' * * *';
 var syncConfig = '00 00 ' + process.env.CRON_SYNC_HOUR + ' * * *';
 
@@ -97,6 +107,7 @@ router.get('/reprocess', function(req,res){
     });
 });
 
+// root routes
 router.get('/download', function(req,res){
     gfModel.downloadExport(res);
 });
@@ -105,7 +116,11 @@ router.get('/joblog', function(req, res) {
     res.send(jobRunLog);
 });
 
+router.get('/ping', function(req, res) {
+    res.send({ random: Math.random() });
+});
 
+// gofundraise routes
 router.get('/gf/grab', function(req, res) {
     // grab the list of regos
     var ws = fs.createWriteStream(process.env.GF_LOCAL_FILENAME);
@@ -126,20 +141,25 @@ router.get('/gf/grab', function(req, res) {
     gfModel.downloadExport(ws);
 });
 
+
 router.get('/gf/members', function(req, res) {
     // grab the goffundraise members
     var sheet = process.env.GF_XLSX_SHEET;
-    var wb = xlsx.readFile(process.env.GF_LOCAL_FILENAME);
-	res.send(xlsx.utils.sheet_to_row_object_array(wb.Sheets[sheet]));
+    
+    //var wb = xlsx.readFile(process.env.GF_LOCAL_FILENAME);
+	//res.send(xlsx.utils.sheet_to_row_object_array(wb.Sheets[sheet]));
+	var wb = jlsx.readFile(process.env.GF_LOCAL_FILENAME);
+    res.send(jlsx.utils.to_json(wb)[sheet]);
 });
 
 
 router.get('/gf/jsonp', function(req, res) {
     var sheet = process.env.GF_XLSX_SHEET;
-    var wb = xlsx.readFile(process.env.GF_LOCAL_FILENAME);
-    // changing this to include volunteers as a ride group
-    var o = us.chain(xlsx.utils.sheet_to_row_object_array(wb.Sheets[sheet]))
-        //.where({ "I would like to register as:": "A Rider $300|300.00" })
+    //var wb = xlsx.readFile(process.env.GF_LOCAL_FILENAME);
+    //...xlsx.utils.sheet_to_row_object_array(wb.Sheets[sheet])...
+    var wb = jlsx.readFile(process.env.GF_LOCAL_FILENAME);
+    var o = us.chain(jlsx.utils.to_json(wb)[sheet])
+        .where({ "Completed": "TRUE" })
         .map(function(r){
             
             return {
@@ -155,12 +175,12 @@ router.get('/gf/jsonp', function(req, res) {
             return r.Group; 
         })
         .value();
+        
     res.jsonp(o);
 });
 
 
-        
-
+// mailchimp routes
 router.get('/mc/members', function(req, res) {
     
     // grab the mailchimp members
@@ -182,6 +202,7 @@ router.get('/mc/sync', function(req, res) {
     });
 });    
 
+// helper functions
 var syncEmails=function(cb){
     
     // local variables
@@ -190,8 +211,10 @@ var syncEmails=function(cb){
     var sheet = process.env.GF_XLSX_SHEET;
     
     // grab the gofundraise members from cached local file
-    var wb = xlsx.readFile(process.env.GF_LOCAL_FILENAME);
-	var gfData = xlsx.utils.sheet_to_row_object_array(wb.Sheets[sheet]);
+    //var wb = xlsx.readFile(process.env.GF_LOCAL_FILENAME);
+    //var gfData = xlsx.utils.sheet_to_row_object_array(wb.Sheets[sheet]);
+    var wb = jlsx.readFile(process.env.GF_LOCAL_FILENAME);
+    var gfData = jlsx.utils.to_json(wb)[sheet];
 
     // grab the mailchimp members
     mcModel.getListMembers(lid, function(mcData){
@@ -253,7 +276,7 @@ var syncEmails=function(cb){
 };
 
 
-
+// start the server
 server.listen(process.env.PORT || 3000, process.env.IP || "0.0.0.0", function(){
   var addr = server.address();
   console.log("gf-proxy server listening at", addr.address + ":" + addr.port);
