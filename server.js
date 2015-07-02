@@ -120,6 +120,10 @@ router.get('/ping', function(req, res) {
     res.send({ random: Math.random() });
 });
 
+router.get('/tempfile', function(req, res) {
+    res.sendfile(process.env.GF_LOCAL_FILENAME);
+});
+
 // gofundraise routes
 router.get('/gf/grab', function(req, res) {
     // grab the list of regos
